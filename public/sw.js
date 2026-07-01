@@ -7,7 +7,7 @@
    - Fonts → Cache First
 ═══════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'mso-v1'
+const CACHE_NAME = 'mso-v2'
 const OFFLINE_URL = '/offline.html'
 
 const APP_SHELL = [

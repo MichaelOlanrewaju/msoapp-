@@ -7,7 +7,7 @@ import { ToastProvider, useToast } from "../components/layout/ToastProvider"
 import SafeAreaDebug from "../components/ui/SafeAreaDebug"
 import AdminBanner from "../components/dashboard/AdminBanner"
 import SectionLabel from "../components/dashboard/SectionLabel"
-import KpiGrid from "../components/dashboard/KpiGrid"
+import TodayStatusCard from "../components/dashboard/TodayStatusCard"
 import PeriodTotalsCard from "../components/dashboard/PeriodTotalsCard"
 import DipSummaryCard from "../components/dashboard/DipSummaryCard"
 import AgoCard from "../components/dashboard/AgoCard"
@@ -103,7 +103,7 @@ function DashboardInner() {
           </div>
 
           <div className="enter" style={delay(1)}>
-            <KpiGrid status={status} data={data} />
+            <TodayStatusCard todayStatus={data?.todayStatus} loading={status === "loading"} />
           </div>
 
           <div className="enter" style={delay(2)}>

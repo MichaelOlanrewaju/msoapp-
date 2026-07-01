@@ -4,16 +4,12 @@ import react from "@vitejs/plugin-react"
 export default defineConfig({
   plugins: [react()],
   server: { port: 5173 },
+  esbuild: {
+    drop: ["console", "debugger"],
+  },
   build: {
     target: "es2015",
-    minify: "terser",
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-        pure_funcs: ["console.log", "console.warn"],
-      },
-    },
+    minify: "esbuild",
     rollupOptions: {
       output: {
         /* Split vendor chunks for better caching */

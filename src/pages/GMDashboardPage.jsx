@@ -6,7 +6,7 @@ import MobileDrawer from "../components/layout/MobileDrawer"
 import { ToastProvider, useToast } from "../components/layout/ToastProvider"
 import SafeAreaDebug from "../components/ui/SafeAreaDebug"
 import SectionLabel from "../components/dashboard/SectionLabel"
-import KpiGrid from "../components/dashboard/KpiGrid"
+import TodayStatusCard from "../components/dashboard/TodayStatusCard"
 import PeriodTotalsCard from "../components/dashboard/PeriodTotalsCard"
 import KpiCard from "../components/dashboard/KpiCard"
 import DipSummaryCard from "../components/dashboard/DipSummaryCard"
@@ -186,7 +186,7 @@ function GMInner() {
           </div>
 
           <div className="enter" style={delay(2)}>
-            <KpiGrid status={status} data={data} />
+            <TodayStatusCard todayStatus={data?.todayStatus} loading={status === "loading"} />
           </div>
 
           <div className="enter mb-5 -mt-2" style={delay(2)}>

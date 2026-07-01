@@ -70,7 +70,10 @@ export function useDashboardData(username) {
         }
         if (payload.noData) {
           setStatus("no-data")
-          setData(null)
+          // Keep the payload (not null) — it still carries todayStatus,
+          // which TodayStatusCard needs even when there's genuinely no
+          // sales/dip data recorded yet today.
+          setData(payload)
           setUpdatedAt(new Date())
           return
         }

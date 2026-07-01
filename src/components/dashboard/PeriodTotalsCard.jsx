@@ -46,7 +46,7 @@ function StatRow({ icon, label, value, sub, valueColor }) {
 
 export default function PeriodTotalsCard() {
   const { data, loading } = usePeriodTotals()
-  const [period, setPeriod] = useState("week") // "week" | "month" | "year"
+  const [period, setPeriod] = useState("today") // "today" | "week" | "month" | "year"
 
   if (loading) {
     return (
@@ -62,7 +62,8 @@ export default function PeriodTotalsCard() {
   if (!data) return null
 
   const bucket = data[period] || {}
-  const periodLabel = period === "week" ? "Since " + new Date(data.weekStart).toLocaleDateString("en-NG", { day: "numeric", month: "short" })
+  const periodLabel = period === "today" ? "So far today — updates live"
+    : period === "week" ? "Since " + new Date(data.weekStart).toLocaleDateString("en-NG", { day: "numeric", month: "short" })
     : period === "month" ? new Date(data.monthStart).toLocaleDateString("en-NG", { month: "long", year: "numeric" })
     : new Date(data.yearStart).getFullYear()
 
@@ -71,7 +72,7 @@ export default function PeriodTotalsCard() {
       <div className="flex items-center justify-between px-4 pt-4">
         <div className="text-[13.5px] font-extrabold tracking-[-0.02em] text-ink">Totals</div>
         <div className="flex gap-1 rounded-full bg-surface p-1">
-          {[["week", "Week"], ["month", "Month"], ["year", "Year"]].map(([k, l]) => (
+          {[["today", "Today"], ["week", "Week"], ["month", "Month"], ["year", "Year"]].map(([k, l]) => (
             <button key={k} type="button" onClick={() => setPeriod(k)}
               className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold transition ${period === k ? "bg-navy text-white" : "text-ink-4"}`}>
               {l}
@@ -79,7 +80,10 @@ export default function PeriodTotalsCard() {
           ))}
         </div>
       </div>
-      <div className="px-4 pb-1 pt-1.5 text-[10.5px] text-ink-4">{periodLabel}</div>
+      <div className="flex items-center gap-1.5 px-4 pb-1 pt-1.5 text-[10.5px] text-ink-4">
+        {period === "today" && <span className="h-1.5 w-1.5 rounded-full bg-green" />}
+        {periodLabel}
+      </div>
 
       {/* Revenue hero strip */}
       <div className="mx-4 my-3 overflow-hidden rounded-[12px]" style={{ background: "linear-gradient(135deg,#130656,#1a0875)" }}>
