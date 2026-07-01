@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { PUMPS } from "../config/pumps"
+import { compressImage } from "../utils/compressImage"
+import { postWithProgress } from "../utils/postWithProgress"
 
 const SCRIPT_URL = import.meta.env.VITE_SCRIPT_URL
 const STATION_KEY = import.meta.env.VITE_STATION_KEY || "mso"
@@ -39,6 +41,7 @@ export function useSalesEntry(username, name, selectedDate) {
   const [hasOpening, setHasOpening] = useState(false)
   const [hasClosing, setHasClosing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [existingPhotos, setExistingPhotos] = useState({}) // { [pumpId__session]: { session, fileId, submittedBy } }
   const isMounted = useRef(true)
 
   useEffect(() => {
@@ -46,6 +49,29 @@ export function useSalesEntry(username, name, selectedDate) {
     return () => {
       isMounted.current = false
     }
+  }, [])
+
+  const loadPhotos = useCallback(date => {
+    if (!SCRIPT_URL) return
+    const url = new URL(SCRIPT_URL)
+    url.searchParams.set("action", "getPhotos")
+    url.searchParams.set("station", STATION_KEY)
+    url.searchParams.set("date", date)
+    fetch(url.toString(), { method: "GET", redirect: "follow" })
+      .then(res => res.json())
+      .then(d => {
+        if (!isMounted.current || !d.ok) return
+        const map = {}
+        ;(d.photos || []).forEach(p => {
+          const key = `${p.subject}__${p.session}`
+          map[key] = { session: p.session, fileId: p.fileId, submittedBy: p.submittedBy }
+        })
+        setExistingPhotos(map)
+      })
+      .catch(() => {
+        // silent — worst case a previously-captured pump photo just
+        // doesn't show a thumbnail this load, nothing is lost
+      })
   }, [])
 
   const loadForDate = useCallback(
@@ -58,6 +84,7 @@ export function useSalesEntry(username, name, selectedDate) {
       setReadings(emptyReadings())
       setHasOpening(false)
       setHasClosing(false)
+      setExistingPhotos({})
 
       const url = new URL(SCRIPT_URL)
       url.searchParams.set("action", "getDailyReport")
@@ -97,8 +124,10 @@ export function useSalesEntry(username, name, selectedDate) {
           if (!isMounted.current) return
           setStatus("error")
         })
+
+      loadPhotos(date)
     },
-    [username]
+    [username, loadPhotos]
   )
 
   useEffect(() => {
@@ -189,36 +218,65 @@ export function useSalesEntry(username, name, selectedDate) {
             setSaving(false)
             return d
           }
-          const saves = PUMPS.map(p => {
+          const failedPumps = []
+          const pumpsWithReadings = PUMPS.filter(p => {
+            const r = readings[pumpId(p)]
+            return Number(r.open) > 0 || Number(r.close) > 0
+          })
+
+          // Saved in small batches rather than all at once — firing up to
+          // 14 simultaneous POSTs (2 per pump x 7 pumps) at Apps Script
+          // in one Promise.all was a plausible cause of an occasional
+          // silent drop under load. A few at a time is still fast but
+          // much less likely to overwhelm the script's concurrency limits.
+          const BATCH_SIZE = 3
+          const savePump = p => {
             const pid = pumpId(p)
             const r = readings[pid]
             const op = Number(r.open) || 0
             const cl = Number(r.close) || 0
-            if (op === 0 && cl === 0) return Promise.resolve()
             const price = p.product === "AGO" ? prices.ago : prices.pms
             const diff = cl >= op ? cl - op : 0
 
-            const metreSave = post({
+            return post({
               action: "savePumpMetre", station: STATION_KEY, username, date,
               pump: pid, product: p.product, tank: p.tank,
               openingMetre: op, closingMetre: cl, diff, price,
               amount: Math.round(diff * price), sessionNum: 1,
             })
+              .then(res => {
+                if (!res || !res.ok) failedPumps.push(pid)
+                return res
+              })
+              .catch(() => {
+                failedPumps.push(pid)
+                return { ok: false }
+              })
+              .then(() => {
+                if (diff <= 0) return null
+                // saleSave failing doesn't lose the metre reading itself —
+                // it's the SalesLog/transactions feed, not the reading of
+                // record, so it's logged but doesn't fail the whole pump.
+                return post({
+                  action: "saveSale", station: STATION_KEY, username, date,
+                  tank: p.tank, pump: pid, product: p.product,
+                  litres: diff, pricePerL: price, amount: Math.round(diff * price),
+                  payMethod: "Mixed", attendant: name || username, notes: notes || "",
+                }).catch(() => null)
+              })
+          }
 
-            if (diff <= 0) return metreSave
+          let chain = Promise.resolve()
+          for (let i = 0; i < pumpsWithReadings.length; i += BATCH_SIZE) {
+            const batch = pumpsWithReadings.slice(i, i + BATCH_SIZE)
+            chain = chain.then(() => Promise.all(batch.map(savePump)))
+          }
 
-            const saleSave = post({
-              action: "saveSale", station: STATION_KEY, username, date,
-              tank: p.tank, pump: pid, product: p.product,
-              litres: diff, pricePerL: price, amount: Math.round(diff * price),
-              payMethod: "Mixed", attendant: name || username, notes: notes || "",
-            })
-
-            return Promise.all([metreSave, saleSave])
-          })
-
-          return Promise.all(saves).then(() => {
+          return chain.then(() => {
             setSaving(false)
+            if (failedPumps.length > 0) {
+              return { ok: false, error: `Reading didn't save for: ${failedPumps.join(", ")}. Please try those pumps again.` }
+            }
             return d
           })
         })
@@ -231,18 +289,33 @@ export function useSalesEntry(username, name, selectedDate) {
   )
 
   const savePhoto = useCallback(
-    (date, session, subject, dataUrl, mimeType) => {
-      const base64 = dataUrl.split(",")[1]
-      return post({
-        action: "savePhoto", station: STATION_KEY, username, date,
-        session, subject, mimeType: mimeType || "image/jpeg", base64,
-      }).catch(() => ({ ok: false }))
+    async (date, session, subject, dataUrl, mimeType, onProgress) => {
+      let toSend = dataUrl
+      let sendMime = mimeType || "image/jpeg"
+      try {
+        const compressed = await compressImage(dataUrl)
+        toSend = compressed.dataUrl
+        sendMime = compressed.mimeType
+      } catch (e) {
+        // fall back to original image if compression fails for any reason
+      }
+
+      const base64 = toSend.split(",")[1]
+      try {
+        return await postWithProgress(
+          SCRIPT_URL,
+          { action: "savePhoto", station: STATION_KEY, username, date, session, subject, mimeType: sendMime, base64 },
+          onProgress
+        )
+      } catch (e) {
+        return { ok: false }
+      }
     },
     [username]
   )
 
   return {
-    status, readings, hasOpening, hasClosing,
+    status, readings, hasOpening, hasClosing, existingPhotos,
     updateReading, clearAll, grandTotals, submit, savePhoto, saving,
     refresh: () => loadForDate(selectedDate),
   }

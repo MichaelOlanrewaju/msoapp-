@@ -274,7 +274,7 @@ export default function SupervisorDashboardPage() {
           <MenuRow icon="bi-receipt-cutoff" iconBg="#FFF1F2" iconColor="#DC2626" title="Expenses" sub="Log daily station expenses" onClick={() => navigate("/expenses-mso")} />
           <MenuRow icon="bi-tag" iconBg="#EEF0FF" iconColor="#130656" title="Fuel Prices" sub="Current PMS & AGO rates" onClick={() => navigate("/price-mso")} />
           <MenuRow icon="bi-file-earmark-bar-graph" iconBg="#F0FDF4" iconColor="#16A34A" title="Daily Summary" sub="Generate & share report" onClick={() => navigate("/summary-mso")} />
-          <MenuRow icon="bi-exclamation-triangle" iconBg="#FFF1F2" iconColor="#DC2626" title="Incidents" sub="Report station issues" onClick={() => navigate("/incidents-mso")} />
+          <MenuRow icon="bi-exclamation-triangle" iconBg="#FFF1F2" iconColor="#DC2626" title="Shortage" sub="Report a shortage or cash gap" onClick={() => navigate("/shortage-mso")} />
           <MenuRow icon="bi-box-arrow-right" iconBg="#FFF1F2" iconColor="#DC2626" title="Sign Out" sub="End your session" onClick={auth.logout} danger />
         </div>
       </div>

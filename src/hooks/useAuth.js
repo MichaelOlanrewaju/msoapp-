@@ -7,8 +7,14 @@ const EXPIRY_MS = 30 * 24 * 60 * 60 * 1000 // 30 days, matches mso-auth.js
 
 export function dashboardPathFor(sessionUser) {
   const station = sessionUser.station
-  if (sessionUser.role === "supervisor") return `/dashboard-supervisor-${station}`
-  if (sessionUser.role === "gm") return `/dashboard-gm-${station}`
+  const role = sessionUser.role
+  const username = sessionUser.u || sessionUser.username
+  // Owner or multi-station user with no station selected yet → station picker
+  if (!station || station === "both" || station === "null") return "/select"
+  if (role === "supervisor") return `/dashboard-supervisor-${station}`
+  if (role === "gm") return `/dashboard-gm-${station}`
+  if (role === "cashier") return `/dashboard-cashier-${station}`
+  // owner (by role or username) or unknown → general dashboard
   return `/dashboard-${station}`
 }
 
@@ -133,12 +139,12 @@ export function useAuth({ requireAuth = false, stationFilter = null } = {}) {
     loading,
     login,
     logout,
-    role: user ? user.role : "",
+    role: user ? (user.role || (user.u === "owner" ? "owner" : "")) : "",
     name: user ? user.name : "",
     username: user ? user.u : "",
     station: user ? user.station : null,
     canPickStation: user ? Boolean(user.pick) : false,
-    isOwner: user ? user.role === "owner" : false,
+    isOwner: user ? (user.role === "owner" || user.u === "owner") : false,
     isGM: user ? user.role === "gm" : false,
   }
 }

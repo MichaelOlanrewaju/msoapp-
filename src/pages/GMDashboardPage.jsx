@@ -7,6 +7,7 @@ import { ToastProvider, useToast } from "../components/layout/ToastProvider"
 import SafeAreaDebug from "../components/ui/SafeAreaDebug"
 import SectionLabel from "../components/dashboard/SectionLabel"
 import KpiGrid from "../components/dashboard/KpiGrid"
+import PeriodTotalsCard from "../components/dashboard/PeriodTotalsCard"
 import KpiCard from "../components/dashboard/KpiCard"
 import DipSummaryCard from "../components/dashboard/DipSummaryCard"
 import AgoCard from "../components/dashboard/AgoCard"
@@ -18,6 +19,8 @@ import AlertsCard from "../components/dashboard/AlertsCard"
 import QuickActionsCard from "../components/dashboard/QuickActionsCard"
 import { useAuth, dashboardPathFor } from "../hooks/useAuth"
 import { useDashboardData } from "../hooks/useDashboardData"
+import { useShortages } from "../hooks/useShortages"
+import { usePendingPayroll } from "../hooks/usePayroll"
 import { usePageTitle } from "../hooks/usePageTitle"
 import { naira, initials, roleLabel } from "../utils/format"
 
@@ -90,6 +93,8 @@ function GMInner() {
   const auth = useAuth({ requireAuth: true, stationFilter: "mso" })
   const { status, data, loading, refresh } = useDashboardData(auth.username)
   const { requests: editRequests, review } = useEditRequests(auth.username)
+  const { shortages, reviewShortage } = useShortages({ all: false })
+  const { pending: pendingPayroll } = usePendingPayroll()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const toast = useToast()
@@ -118,6 +123,12 @@ function GMInner() {
   const handleReject = rowIndex =>
     review(rowIndex, "reject").then(d => {
       if (d.ok) toast.showToast("Rejected", "Edit request rejected", "ok")
+      else toast.showToast("Could not process", d.error || "Try again", "err")
+    })
+
+  const handleReviewShortage = (rowIndex, decision) =>
+    reviewShortage({ rowIndex, decision, username: auth.username }).then(d => {
+      if (d.ok) toast.showToast("Updated", "Shortage marked as reviewed", "ok")
       else toast.showToast("Could not process", d.error || "Try again", "err")
     })
 
@@ -193,6 +204,13 @@ function GMInner() {
           </div>
 
           <div className="enter" style={delay(3)}>
+            <SectionLabel>Totals — Week, Month &amp; Year</SectionLabel>
+          </div>
+          <div className="enter mb-3" style={delay(3)}>
+            <PeriodTotalsCard />
+          </div>
+
+          <div className="enter" style={delay(3)}>
             <SectionLabel>Tank Performance</SectionLabel>
           </div>
           <div className="enter mb-3 grid grid-cols-1 gap-3 lg:grid-cols-12" style={delay(4)}>
@@ -212,7 +230,7 @@ function GMInner() {
           </div>
           <div className="enter mb-3 grid grid-cols-1 gap-3 lg:grid-cols-12" style={delay(6)}>
             <div className="lg:col-span-4">
-              <TankLevelsCard status={status} tankLevels={data?.tankLevels} isOwner={true} />
+              <TankLevelsCard status={status} tankLevels={data?.tankLevels} />
             </div>
             <div className="lg:col-span-8">
               <SalesTrendCard
@@ -237,6 +255,10 @@ function GMInner() {
                 editRequests={editRequests}
                 onApproveEdit={handleApprove}
                 onRejectEdit={handleReject}
+                shortages={shortages}
+                onReviewShortage={handleReviewShortage}
+                pendingPayroll={pendingPayroll}
+                payrollReadOnly
               />
               <QuickActionsCard role={auth.role} />
             </div>

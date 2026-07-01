@@ -1,4 +1,5 @@
 import React from "react"
+import { useNavigate } from "react-router-dom"
 
 function buildTankAlerts(tankLevels) {
   if (!tankLevels || !tankLevels.length) return []
@@ -32,8 +33,57 @@ function buildEditAlerts(editRequests, onApprove, onReject) {
   }))
 }
 
-export default function AlertsCard({ tankLevels, editRequests, onApproveEdit, onRejectEdit }) {
-  const alerts = [...buildEditAlerts(editRequests, onApproveEdit, onRejectEdit), ...buildTankAlerts(tankLevels)]
+function buildShortageAlerts(shortages, onReview) {
+  if (!shortages || !shortages.length) return []
+  return shortages.map(s => ({
+    key: `shortage-${s.rowIndex}`,
+    icon: "bi-cash-coin",
+    iconBg: "#FEF2F2",
+    iconColor: "#DC2626",
+    title: `Shortage — ₦${Math.round(s.amount).toLocaleString("en-NG")} (${s.category})`,
+    text: `${s.reportedBy || "Staff"} on ${s.date}: ${s.description}`,
+    actions: onReview
+      ? [{ label: "Mark Reviewed", onClick: () => onReview(s.rowIndex, "reviewed"), tone: "green" }]
+      : null,
+  }))
+}
+
+function buildPayrollAlerts(pendingPayroll, onNavigate) {
+  if (!pendingPayroll || !pendingPayroll.length) return []
+  return pendingPayroll.map(p => {
+    const [y, m] = (p.month || "").split("-")
+    const label = y && m
+      ? new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-NG", { month: "long", year: "numeric" })
+      : p.month
+    return {
+      key: `payroll-${p.month}`,
+      icon: "bi-wallet2",
+      iconBg: "#EEF0FB",
+      iconColor: "#130656",
+      title: `Payroll — ${label}`,
+      text: onNavigate
+        ? `${p.staffCount} staff · ₦${Math.round(p.totalNet).toLocaleString("en-NG")} net total · Prepared by ${p.preparedBy || "GM"} — awaiting your approval.`
+        : `${p.staffCount} staff · ₦${Math.round(p.totalNet).toLocaleString("en-NG")} net total · Submitted for owner approval.`,
+      actions: onNavigate
+        ? [{ label: "Review & Approve →", onClick: () => onNavigate(p.month), tone: "green" }]
+        : null,
+    }
+  })
+}
+
+export default function AlertsCard({ tankLevels, editRequests, onApproveEdit, onRejectEdit, shortages, onReviewShortage, pendingPayroll, payrollReadOnly }) {
+  const navigate = useNavigate()
+
+  const handlePayrollNavigate = month => {
+    navigate(`/payroll-mso?month=${month}`)
+  }
+
+  const alerts = [
+    ...buildPayrollAlerts(pendingPayroll, payrollReadOnly ? null : handlePayrollNavigate),
+    ...buildShortageAlerts(shortages, onReviewShortage),
+    ...buildEditAlerts(editRequests, onApproveEdit, onRejectEdit),
+    ...buildTankAlerts(tankLevels),
+  ]
 
   return (
     <div className="overflow-hidden rounded-card border border-border bg-white shadow-card">

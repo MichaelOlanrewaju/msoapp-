@@ -1,5 +1,4 @@
 import React from "react"
-import { Link } from "react-router-dom"
 import { numberNG } from "../../utils/format"
 
 function pctClass(pct) {
@@ -43,7 +42,7 @@ function TankRow({ tank }) {
   )
 }
 
-export default function TankLevelsCard({ status, tankLevels, isOwner }) {
+export default function TankLevelsCard({ status, tankLevels }) {
   const loading = status === "loading" || status === "idle"
   const hasData = tankLevels && tankLevels.length > 0
 
@@ -60,14 +59,6 @@ export default function TankLevelsCard({ status, tankLevels, isOwner }) {
           <div className="text-[13.5px] font-extrabold tracking-[-0.02em] text-ink">Live Tank Levels</div>
           <div className="mt-0.5 text-[10.5px] text-ink-4">4 tanks · latest dip reading</div>
         </div>
-        {!isOwner && (
-          <Link
-            to="/dip-mso"
-            className="inline-flex items-center gap-[5px] whitespace-nowrap rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-ink-2 transition-all duration-150 hover:border-cyan/30 hover:bg-cyan-light hover:text-navy"
-          >
-            <i className="bi bi-plus-circle" /> Dip
-          </Link>
-        )}
       </div>
 
       <div className="p-[18px]">

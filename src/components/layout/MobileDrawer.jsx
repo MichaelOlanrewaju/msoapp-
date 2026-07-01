@@ -1,78 +1,68 @@
 import React from "react"
-import { Link } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 
-const LINK =
-  "flex items-center gap-[9px] rounded-[11px] border border-white/[0.08] bg-white/[0.06] px-3 py-[11px] text-[12.5px] font-semibold text-white/75 transition-colors duration-150 hover:bg-white/10 [&_i]:flex-shrink-0 [&_i]:text-base"
-
-const PRIMARY_LINKS = [
-  { href: "/cashup-mso", icon: "bi-cash-coin", color: "#179DD0", text: "Cash Reconciliation" },
-  { href: "/discharge-mso", icon: "bi-truck", color: "#F59E0B", text: "Discharge" },
-  { href: "/shifts-mso", icon: "bi-clock-history", color: "#A78BFA", text: "Shift Log" },
-  { href: "/incidents-mso", icon: "bi-exclamation-triangle", color: "#F87171", text: "Incidents" },
-  { href: "/variance-mso", icon: "bi-activity", color: "#34D399", text: "Variance" },
-  { href: "/pnl-mso", icon: "bi-bar-chart-line", color: "#60A5FA", text: "P&L Report" },
-]
-
-const SECONDARY_LINKS = [
-  { href: "/records-mso", icon: "bi-journal-text", color: "#94A3B8", text: "Records" },
-  { href: "/debtors-mso", icon: "bi-people", color: "#94A3B8", text: "Debtors" },
-  { href: "/orders-mso", icon: "bi-cart3", color: "#94A3B8", text: "Orders" },
-  { href: "/payroll-mso", icon: "bi-wallet2", color: "#94A3B8", text: "Payroll" },
-  { href: "/summary-mso", icon: "bi-printer", color: "#94A3B8", text: "Summary" },
-  { href: "/chat-mso", icon: "bi-chat-dots", color: "#94A3B8", text: "Staff Chat" },
+// NOTE: MobileDrawer is only ever rendered for owner/gm (supervisor and
+// cashier have their own dedicated mobile dashboard UIs) — so nothing here
+// should be a floor-operations task like Record Sales, Tank Dip, Cash Up,
+// or Expenses entry. Those belong to supervisor/cashier only.
+const LINKS = [
+  { href: "/discharge-mso",icon: "bi-truck",                  color: "#D97706", text: "Discharge" },
+  { href: "/shortage-mso", icon: "bi-exclamation-triangle",   color: "#F87171", text: "Shortage" },
+  { href: "/debtors-mso",  icon: "bi-person-fill-exclamation",color: "#DC2626", text: "Debtors" },
+  { href: "/orders-mso",   icon: "bi-box-arrow-in-down",      color: "#D97706", text: "Orders" },
+  { href: "/variance-mso", icon: "bi-graph-up-arrow",         color: "#0891B2", text: "Variance" },
+  { href: "/pnl-mso",      icon: "bi-bar-chart-line-fill",    color: "#06091A", text: "P&L" },
+  { href: "/summary-mso",  icon: "bi-printer",                color: "#06091A", text: "Summary" },
+  { href: "/records-mso",  icon: "bi-journal-text",           color: "#06091A", text: "Records" },
+  { href: "/payroll-mso",  icon: "bi-wallet2",                color: "#130656", text: "Payroll" },
+  { href: "/add-staff-mso",icon: "bi-person-plus",            color: "#130656", text: "Add Staff" },
+  { href: "/chat-mso",     icon: "bi-chat-dots",              color: "#7C3AED", text: "Staff Chat" },
+  { href: "/profile",      icon: "bi-person-circle",          color: "#64748B", text: "My Profile" },
 ]
 
 export default function MobileDrawer({ open, onClose, onLogout }) {
+  const navigate = useNavigate()
   if (!open) return null
 
+  const go = href => { onClose(); navigate(href) }
+
   return (
-    <div className="fixed inset-0 z-[1060] flex items-end">
-      <div className="absolute inset-0 bg-black/55" onClick={onClose} />
-      <div
-        className="relative z-[1] max-h-[82vh] w-full overflow-y-auto rounded-t-[20px] bg-navy-2"
-        style={{ paddingBottom: "calc(16px + var(--sab))" }}
-      >
-        <div className="mx-auto mt-3 h-[3.5px] w-[38px] rounded-sm bg-white/[0.18]" />
-        <div className="flex items-center justify-between px-[18px] pb-2 pt-3.5">
-          <div className="text-base font-extrabold text-white">Menu</div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-white/10 text-lg text-white/60"
-          >
-            ×
+    <>
+      <div className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 z-[301] flex w-[80vw] max-w-[320px] flex-col bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4"
+          style={{ paddingTop: "max(16px,var(--sat))" }}>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-navy">
+              <span className="text-[10px] font-extrabold text-white">MSO</span>
+            </div>
+            <span className="text-[14px] font-extrabold text-ink">Menu</span>
+          </div>
+          <button type="button" onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-ink-4">
+            <i className="bi bi-x-lg text-[13px]" />
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 px-3.5 pb-3 pt-1">
-          {PRIMARY_LINKS.map(l => (
-            <Link key={l.href} to={l.href} className={LINK} onClick={onClose}>
-              <i className={`bi ${l.icon}`} style={{ color: l.color }} />
-              {l.text}
-            </Link>
-          ))}
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          <div className="grid grid-cols-3 gap-2">
+            {LINKS.map(l => (
+              <button key={l.href} type="button" onClick={() => go(l.href)}
+                className="flex flex-col items-center gap-1.5 rounded-[12px] border border-surface bg-surface px-2 py-3 text-center active:bg-border">
+                <i className={`bi ${l.icon} text-[20px]`} style={{ color: l.color }} />
+                <span className="text-[10.5px] font-semibold leading-tight text-ink">{l.text}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="px-[18px] pb-1.5 pt-2.5 text-[8px] font-bold uppercase tracking-[2px] text-white/[0.18]">
-          Reports &amp; Finance
+        <div className="border-t border-surface px-4 pb-[max(16px,var(--sab))] pt-3">
+          <button type="button" onClick={() => { onClose(); onLogout() }}
+            className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-red/20 bg-red-light py-3 text-[13px] font-bold text-red">
+            <i className="bi bi-box-arrow-right" /> Sign Out
+          </button>
         </div>
-        <div className="grid grid-cols-2 gap-2 px-3.5 pb-3 pt-1">
-          {SECONDARY_LINKS.map(l => (
-            <Link key={l.href} to={l.href} className={LINK} onClick={onClose}>
-              <i className={`bi ${l.icon}`} style={{ color: l.color }} />
-              {l.text}
-            </Link>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          onClick={onLogout}
-          className="mx-3.5 mt-2.5 flex w-[calc(100%-28px)] items-center justify-center gap-2 rounded-[11px] border border-red/25 bg-red/[0.12] p-3 text-[13px] font-semibold text-red-300"
-        >
-          <i className="bi bi-box-arrow-left" /> Sign Out
-        </button>
       </div>
-    </div>
+    </>
   )
 }

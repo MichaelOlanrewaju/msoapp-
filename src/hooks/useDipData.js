@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { TANKS } from "../config/pumps"
+import { compressImage } from "../utils/compressImage"
+import { postWithProgress } from "../utils/postWithProgress"
 
 const SCRIPT_URL = import.meta.env.VITE_SCRIPT_URL
 const STATION_KEY = import.meta.env.VITE_STATION_KEY || "mso"
@@ -66,6 +68,7 @@ export function useDipData(username, selectedDate) {
   const [hasOpening, setHasOpening] = useState(false)
   const [hasClosing, setHasClosing] = useState(false)
   const [hasCash, setHasCash] = useState(false)
+  const [existingPhotos, setExistingPhotos] = useState({}) // { [subject__session]: { session, fileId, submittedBy } }
   const rawReportRef = useRef(null)
   const isMounted = useRef(true)
 
@@ -74,6 +77,31 @@ export function useDipData(username, selectedDate) {
     return () => {
       isMounted.current = false
     }
+  }, [])
+
+  const loadPhotos = useCallback(date => {
+    if (!SCRIPT_URL) return
+    const url = new URL(SCRIPT_URL)
+    url.searchParams.set("action", "getPhotos")
+    url.searchParams.set("station", STATION_KEY)
+    url.searchParams.set("date", date)
+    fetch(url.toString(), { method: "GET", redirect: "follow" })
+      .then(res => res.json())
+      .then(d => {
+        if (!isMounted.current || !d.ok) return
+        const map = {}
+        ;(d.photos || []).forEach(p => {
+          // Keyed by subject+session so a morning photo doesn't make an
+          // evening photo for the same tank look already-captured.
+          const key = `${p.subject}__${p.session}`
+          map[key] = { session: p.session, fileId: p.fileId, submittedBy: p.submittedBy }
+        })
+        setExistingPhotos(map)
+      })
+      .catch(() => {
+        // silent — worst case the page just shows "no photo yet" for
+        // an already-captured tank, which is the prior behavior anyway
+      })
   }, [])
 
   const loadForDate = useCallback(
@@ -87,6 +115,7 @@ export function useDipData(username, selectedDate) {
       setHasOpening(false)
       setHasClosing(false)
       setHasCash(false)
+      setExistingPhotos({})
       rawReportRef.current = null
 
       const url = new URL(SCRIPT_URL)
@@ -127,8 +156,10 @@ export function useDipData(username, selectedDate) {
           if (!isMounted.current) return
           setStatus("error")
         })
+
+      loadPhotos(date)
     },
-    [username]
+    [username, loadPhotos]
   )
 
   useEffect(() => {
@@ -204,12 +235,34 @@ export function useDipData(username, selectedDate) {
   )
 
   const savePhoto = useCallback(
-    (date, session, subject, dataUrl, mimeType) => {
-      const base64 = dataUrl.split(",")[1]
-      return post({
-        action: "savePhoto", station: STATION_KEY, username, date,
-        session, subject, mimeType: mimeType || "image/jpeg", base64,
-      }).catch(() => ({ ok: false }))
+    async (date, session, subject, dataUrl, mimeType, onProgress) => {
+      let toSend = dataUrl
+      let sendMime = mimeType || "image/jpeg"
+
+      // Compress first — this is the real speed win. A 5MB camera photo
+      // becomes a few hundred KB, so the upload itself (the slow part)
+      // has far less data to push, on top of giving real percentage
+      // feedback during whatever's left.
+      try {
+        const compressed = await compressImage(dataUrl)
+        toSend = compressed.dataUrl
+        sendMime = compressed.mimeType
+      } catch (e) {
+        // If compression fails for any reason, fall back to the original
+        // image rather than losing the photo entirely.
+      }
+
+      const base64 = toSend.split(",")[1]
+      try {
+        const result = await postWithProgress(
+          SCRIPT_URL,
+          { action: "savePhoto", station: STATION_KEY, username, date, session, subject, mimeType: sendMime, base64 },
+          onProgress
+        )
+        return result
+      } catch (e) {
+        return { ok: false }
+      }
     },
     [username]
   )
@@ -220,6 +273,7 @@ export function useDipData(username, selectedDate) {
     hasOpening,
     hasClosing,
     hasCash,
+    existingPhotos,
     updateTank,
     saveOpening,
     saveClosing,

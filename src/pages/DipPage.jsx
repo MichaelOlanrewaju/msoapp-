@@ -26,7 +26,7 @@ function DipInner() {
   const [date, setDate] = useState(todayISO())
 
   const {
-    status, tankState, hasOpening, hasClosing, hasCash,
+    status, tankState, hasOpening, hasClosing, hasCash, existingPhotos,
     updateTank, saveOpening, saveClosing, savePhoto, refresh,
   } = useDipData(auth.username, date)
   const { prices } = usePrices()
@@ -40,6 +40,7 @@ function DipInner() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [photos, setPhotos] = useState({})
+  const [uploadProgress, setUploadProgress] = useState({})
 
   // When data finishes loading for a date, jump mode to whichever stage
   // already has data — matches original setMode('close', true) on load.
@@ -53,6 +54,23 @@ function DipInner() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
+
+  // Seed photo indicators from what's already saved on the backend —
+  // previously this always started empty, so an already-captured photo
+  // looked "missing" after any navigation or reload even though the
+  // file itself was safely sitting in Drive the whole time. Re-runs when
+  // mode flips between Opening/Closing since those are separate sessions.
+  useEffect(() => {
+    if (status !== "ready") return
+    const sessionLabel = mode === "open" ? "Morning" : "Evening"
+    const seeded = {}
+    STEPS.forEach(s => {
+      const key = `${s.cfg.id}__${sessionLabel}`
+      if (existingPhotos[key]) seeded[s.cfg.id] = { saved: true, fileId: existingPhotos[key].fileId }
+    })
+    setPhotos(seeded)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, mode, existingPhotos])
 
   useEffect(() => {
     setTimeout(() => {
@@ -76,9 +94,21 @@ function DipInner() {
   }
 
   const handlePhoto = (dataUrl, mimeType) => {
-    setPhotos(prev => ({ ...prev, [stepKey]: { saved: false } }))
-    savePhoto(date, mode === "open" ? "Morning" : "Evening", stepKey, dataUrl, mimeType).then(d => {
-      setPhotos(prev => ({ ...prev, [stepKey]: { saved: true } }))
+    // Shows the just-captured image immediately using the local data URI
+    // — instant, no network dependency. This stays the source of truth
+    // for "what I just took" even after upload; only a future page
+    // visit (when only fileId is known) needs to fetch from Drive.
+    setPhotos(prev => ({ ...prev, [stepKey]: { saved: false, localUrl: dataUrl } }))
+    setUploadProgress(prev => ({ ...prev, [stepKey]: 0 }))
+    savePhoto(date, mode === "open" ? "Morning" : "Evening", stepKey, dataUrl, mimeType, pct => {
+      setUploadProgress(prev => ({ ...prev, [stepKey]: pct }))
+    }).then(d => {
+      setPhotos(prev => ({ ...prev, [stepKey]: { saved: true, localUrl: dataUrl } }))
+      setUploadProgress(prev => {
+        const next = { ...prev }
+        delete next[stepKey]
+        return next
+      })
       toast.showToast(d.ok ? "Photo saved" : "Photo captured", d.ok ? "Uploaded to Drive" : "Will retry on next sync", d.ok ? "ok" : "warn")
     })
   }
@@ -176,6 +206,7 @@ function DipInner() {
                   onCapture={handlePhoto}
                   label={`Add ${step.cfg.id} photo`}
                   sub="Optional evidence photo"
+                  progress={uploadProgress[stepKey]}
                 />
               )}
             </div>

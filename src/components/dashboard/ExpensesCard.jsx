@@ -1,8 +1,10 @@
 import React from "react"
-import { Link } from "react-router-dom"
 import { naira } from "../../utils/format"
 
-export default function ExpensesCard({ status, expensesTotal, isOwner }) {
+// NOTE: ExpensesCard is only ever rendered on owner/GM dashboards. Adding
+// an expense is a supervisor/cashier task, so this card is view-only here —
+// no "Add" link into the entry form.
+export default function ExpensesCard({ status, expensesTotal }) {
   const loading = status === "loading" || status === "idle"
   const total = Number(expensesTotal || 0)
 
@@ -15,14 +17,6 @@ export default function ExpensesCard({ status, expensesTotal, isOwner }) {
             {loading ? <span className="skel inline-block h-3 w-16" /> : `${naira(total)} today`}
           </div>
         </div>
-        {!isOwner && (
-          <Link
-            to="/expenses-mso"
-            className="inline-flex items-center gap-[5px] whitespace-nowrap rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-ink-2 transition-all duration-150 hover:border-cyan/30 hover:bg-cyan-light hover:text-navy"
-          >
-            <i className="bi bi-plus" /> Add
-          </Link>
-        )}
       </div>
       <div className="px-[18px] py-[22px] text-center text-[12.5px] text-ink-4">
         <i className="bi bi-check-circle mb-2 block text-[28px] text-border" />

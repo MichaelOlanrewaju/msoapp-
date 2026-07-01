@@ -8,6 +8,10 @@ function itemClass({ isActive }) {
   return `${BASE} ${isActive ? "border-cyan/25 bg-white/10 text-cyan" : "text-white/40"}`
 }
 
+// NOTE: BottomNav is only ever rendered for owner/gm (supervisor and
+// cashier have their own dedicated bottom nav built into their dashboard
+// pages) — so nothing here should be a floor-operations task like Record
+// Sales, Tank Dip, or Expenses entry. Those belong to supervisor/cashier only.
 export default function BottomNav({ onOpenMore, homePath = "/dashboard-mso" }) {
   return (
     <nav
@@ -19,17 +23,17 @@ export default function BottomNav({ onOpenMore, homePath = "/dashboard-mso" }) {
           <i className="bi bi-grid-1x2-fill" />
           <span>Home</span>
         </NavLink>
-        <NavLink to="/sales-mso" className={itemClass}>
-          <i className="bi bi-speedometer2" />
-          <span>Pump</span>
+        <NavLink to="/discharge-mso" className={itemClass}>
+          <i className="bi bi-truck" />
+          <span>Discharge</span>
         </NavLink>
-        <NavLink to="/dip-mso" className={itemClass}>
-          <i className="bi bi-water" />
-          <span>Dip</span>
+        <NavLink to="/summary-mso" className={itemClass}>
+          <i className="bi bi-printer" />
+          <span>Summary</span>
         </NavLink>
-        <NavLink to="/expenses-mso" className={itemClass}>
-          <i className="bi bi-receipt-cutoff" />
-          <span>Expenses</span>
+        <NavLink to="/payroll-mso" className={itemClass}>
+          <i className="bi bi-wallet2" />
+          <span>Payroll</span>
         </NavLink>
         <button type="button" onClick={onOpenMore} className={BASE + " text-white/40"}>
           <i className="bi bi-list" />

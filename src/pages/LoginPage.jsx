@@ -2,179 +2,187 @@ import React, { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth, dashboardPathFor } from "../hooks/useAuth"
 import { usePageTitle } from "../hooks/usePageTitle"
-import FuelGauge from "../components/ui/FuelGauge"
 
 const SCRIPT_URL = import.meta.env.VITE_SCRIPT_URL
 
 export default function LoginPage() {
-  usePageTitle("Sign in — MSO Limpid")
+  usePageTitle("Sign In — MSO Digital")
   const auth = useAuth({ requireAuth: false })
   const navigate = useNavigate()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [showPass, setShowPass] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(null)
 
   useEffect(() => {
     if (!auth.loading && auth.user) {
-      if (auth.canPickStation || !auth.station) {
-        navigate("/select", { replace: true })
-      } else {
-        navigate(dashboardPathFor({ role: auth.role, station: auth.station }), { replace: true })
-      }
+      if (auth.canPickStation || !auth.station) navigate("/select", { replace: true })
+      else navigate(dashboardPathFor({ role: auth.role, station: auth.station }), { replace: true })
     }
   }, [auth.loading, auth.user, auth.canPickStation, auth.station, auth.role, navigate])
 
+  const clearErrors = () => setError(null)
+
   async function handleSubmit(e) {
-    e.preventDefault()
-    setError(null)
-
-    if (!username.trim() || !password) {
-      setError("Enter your username and password.")
-      return
-    }
-    if (!SCRIPT_URL) {
-      setError("VITE_SCRIPT_URL isn't configured — check your .env file.")
-      return
-    }
-
+    e?.preventDefault()
+    clearErrors()
+    const u = username.trim().toLowerCase()
+    const p = password
+    if (!u) { setError("Please enter your email address."); return }
+    if (!p) { setError("Please enter your password."); return }
+    if (!SCRIPT_URL) { setError("Script URL not configured."); return }
     setSubmitting(true)
     try {
-      const res = await fetch(SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "login", username: username.trim(), password }),
-        redirect: "follow",
-      })
-      const payload = await res.json()
-
-      if (!payload.ok || !payload.user) {
-        setError(payload.error || "Incorrect username or password.")
+      const url = new URL(SCRIPT_URL)
+      url.searchParams.set("action", "login")
+      url.searchParams.set("username", u)
+      url.searchParams.set("password", p)
+      const res = await fetch(url.toString(), { method: "GET", redirect: "follow" })
+      const raw = await res.text()
+      let data
+      try { data = JSON.parse(raw) } catch { throw new Error("Bad response from server.") }
+      if (!data.ok || !data.user) {
+        setError(data.error || "Incorrect username or password.")
         setSubmitting(false)
         return
       }
-
-      auth.login(payload.user)
+      setSuccess(data.user.pick ? "Authenticated — select your station…" : `Loading ${(data.user.station || "").toUpperCase()} dashboard…`)
+      auth.login(data.user)
     } catch (err) {
-      setError("Couldn't reach the server. Check your connection and try again.")
+      setError(navigator.onLine ? "Could not reach server. Try again." : "No internet — check your connection.")
       setSubmitting(false)
     }
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-navy lg:items-stretch lg:justify-stretch">
-      {/* ambient glow */}
-      <div className="pointer-events-none absolute -left-32 top-1/4 h-[420px] w-[420px] rounded-full bg-cyan/10 blur-[120px]" />
-      <div className="pointer-events-none absolute -right-24 bottom-0 h-[360px] w-[360px] rounded-full bg-amber/10 blur-[120px]" />
+    <div style={{ position:"fixed", inset:0, background:"#06091A", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px 16px calc(20px + env(safe-area-inset-bottom))", overflowY:"auto", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
 
-      <div className="relative z-[1] flex w-full max-w-[980px] flex-col overflow-hidden rounded-card shadow-glow lg:m-8 lg:flex-row lg:rounded-card">
-        {/* ── Brand panel ── */}
-        <div className="dot-grid relative hidden flex-col items-center justify-center gap-8 bg-navy-2 px-10 py-14 lg:flex lg:w-[42%]">
-          <div className="enter relative z-[1] flex flex-col items-center gap-1" style={{ animationDelay: "0ms" }}>
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.12] bg-white/[0.08]">
-              <span className="font-mono text-xl font-black text-cyan">M</span>
-            </div>
-            <div className="text-lg font-extrabold tracking-[-0.02em] text-white">MSO Limpid</div>
-            <div className="text-[10px] uppercase tracking-[1.5px] text-white/30">Operations Console</div>
-          </div>
+      {/* Animated blobs */}
+      <div style={{ position:"fixed", inset:0, pointerEvents:"none", overflow:"hidden" }}>
+        <div style={{ position:"absolute", width:700, height:700, top:"-20%", left:"-15%", borderRadius:"50%", background:"radial-gradient(circle,rgba(23,157,208,0.22) 0%,transparent 65%)", filter:"blur(80px)", animation:"drift1 18s ease-in-out infinite alternate" }} />
+        <div style={{ position:"absolute", width:600, height:600, bottom:"-10%", right:"-10%", borderRadius:"50%", background:"radial-gradient(circle,rgba(19,6,86,0.70) 0%,transparent 65%)", filter:"blur(80px)", animation:"drift2 22s ease-in-out infinite alternate" }} />
+        <div style={{ position:"absolute", width:400, height:400, top:"40%", left:"55%", borderRadius:"50%", background:"radial-gradient(circle,rgba(100,50,200,0.10) 0%,transparent 65%)", filter:"blur(80px)", animation:"drift3 15s ease-in-out infinite alternate" }} />
+      </div>
+      {/* Dot grid */}
+      <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:"radial-gradient(rgba(255,255,255,0.045) 1px,transparent 1px)", backgroundSize:"26px 26px" }} />
 
-          <div className="enter relative z-[1]" style={{ animationDelay: "120ms" }}>
-            <FuelGauge level={68} />
-          </div>
+      {/* Card */}
+      <div style={{ position:"relative", zIndex:5, width:"100%", maxWidth:400, display:"flex", flexDirection:"column", alignItems:"center" }}>
 
-          <div
-            className="enter relative z-[1] max-w-[230px] text-center text-[12px] leading-relaxed text-white/35"
-            style={{ animationDelay: "220ms" }}
-          >
-            Sales, tank dips, cash reconciliation and discharge — one console
-            for every shift at MSO Limpid Co. Ltd.
-          </div>
+        {/* Logo above card */}
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10, marginBottom:28, animation:"riseIn 0.65s 0.05s both cubic-bezier(0.22,1,0.36,1)" }}>
+          <img src="/images/msolimpid.png" alt="MSO Limpid"
+            style={{ height:48, width:"auto", display:"block", filter:"brightness(0) invert(1)" }}
+            onError={e => { e.target.style.display="none" }} />
+          <div style={{ fontSize:16, fontWeight:800, color:"#fff", letterSpacing:"-0.03em" }}>Digital Platform</div>
         </div>
 
-        {/* ── Form panel ── */}
-        <div className="flex flex-1 flex-col justify-center bg-white px-7 py-10 sm:px-10 lg:px-12">
-          {/* mobile-only compact brand row */}
-          <div className="enter mb-7 flex items-center gap-3 lg:hidden" style={{ animationDelay: "0ms" }}>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy">
-              <span className="font-mono text-sm font-black text-cyan">M</span>
-            </div>
-            <div>
-              <div className="text-sm font-extrabold tracking-[-0.02em] text-navy">MSO Limpid</div>
-              <div className="text-[9px] uppercase tracking-[1px] text-ink-4">Operations Console</div>
-            </div>
+        {/* White card */}
+        <div style={{ width:"100%", background:"#fff", borderRadius:22, padding:"38px 36px 32px", boxShadow:"0 0 0 0.5px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.08), 0 24px 64px rgba(0,0,0,0.28)", animation:"riseIn 0.65s 0.14s both cubic-bezier(0.22,1,0.36,1)" }}>
+
+          <div style={{ marginBottom:26 }}>
+            <h1 style={{ fontSize:26, fontWeight:900, color:"#0F172A", letterSpacing:"-0.055em", lineHeight:0.97, marginBottom:7 }}>Sign in</h1>
+            <p style={{ fontSize:14, color:"#64748B", lineHeight:1.6 }}>Enter your email and password to access your dashboard.</p>
           </div>
 
-          <div className="enter" style={{ animationDelay: "80ms" }}>
-            <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-cyan/20 bg-cyan-light px-3 py-1 text-[10.5px] font-bold text-cyan-dark">
-              <span className="h-1.5 w-1.5 rounded-full bg-green" /> Mobil Authorised · Lagos
+          {/* Error */}
+          {error && (
+            <div style={{ display:"flex", alignItems:"flex-start", gap:9, padding:"11px 13px", borderRadius:11, fontSize:13, fontWeight:500, lineHeight:1.45, marginBottom:16, background:"#FEF2F2", border:"1px solid #FECACA", color:"#B91C1C" }}>
+              <i className="bi bi-exclamation-circle-fill" style={{ fontSize:14, marginTop:1, flexShrink:0 }} />
+              {error}
             </div>
-            <h1 className="mb-1.5 mt-3 text-[22px] font-extrabold tracking-[-0.02em] text-navy">
-              Welcome back
-            </h1>
-            <p className="mb-7 text-[13px] text-ink-3">Sign in with the credentials issued for your role.</p>
-          </div>
+          )}
 
-          <form onSubmit={handleSubmit} className="enter" style={{ animationDelay: "140ms" }}>
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.6px] text-ink-3">
-              Username
-            </label>
-            <div className="mb-4 flex items-center gap-2.5 rounded-[10px] border border-border bg-surface px-3.5 py-2.5 transition-colors focus-within:border-cyan/50 focus-within:ring-2 focus-within:ring-cyan/20">
-              <i className="bi bi-person text-ink-4" />
-              <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                autoComplete="username"
-                placeholder="e.g. owner"
-                className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink-4"
+          {/* Email / Username */}
+          <div style={{ marginBottom:13 }}>
+            <div style={{ fontSize:11.5, fontWeight:700, color:"#334155", letterSpacing:"0.6px", textTransform:"uppercase", marginBottom:7 }}>Email Address</div>
+            <div style={{ position:"relative" }}>
+              <i className="bi bi-envelope" style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", fontSize:16, color: username ? "#179DD0" : "#94A3B8", pointerEvents:"none" }} />
+              <input type="email" value={username}
+                onChange={e => { setUsername(e.target.value); clearErrors() }}
+                onKeyDown={e => e.key === "Enter" && handleSubmit()}
+                autoComplete="email" autoCapitalize="off" spellCheck={false}
+                placeholder="your@email.com"
+                style={{ width:"100%", height:50, borderRadius:12, padding:"0 46px", fontSize:15, fontWeight:500, color:"#0F172A", background: error ? "#FFF5F5" : "#F8FAFC", border: `1.5px solid ${error ? "#FCA5A5" : "#E2E8F0"}`, outline:"none", transition:"border-color 0.18s, box-shadow 0.18s, background 0.18s", WebkitAppearance:"none" }}
+                onFocus={e => { e.target.style.background="#fff"; e.target.style.borderColor="#179DD0"; e.target.style.boxShadow="0 0 0 4px rgba(23,157,208,0.12)" }}
+                onBlur={e => { e.target.style.background="#F8FAFC"; e.target.style.borderColor=error?"#FCA5A5":"#E2E8F0"; e.target.style.boxShadow="none" }}
               />
             </div>
+          </div>
 
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.6px] text-ink-3">
-              Password
-            </label>
-            <div className="mb-5 flex items-center gap-2.5 rounded-[10px] border border-border bg-surface px-3.5 py-2.5 transition-colors focus-within:border-cyan/50 focus-within:ring-2 focus-within:ring-cyan/20">
-              <i className="bi bi-lock text-ink-4" />
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
+          {/* Password */}
+          <div style={{ marginBottom:6 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:11.5, fontWeight:700, color:"#334155", letterSpacing:"0.6px", textTransform:"uppercase", marginBottom:7 }}>
+              <span>Password</span>
+              <button type="button" onClick={() => navigate("/forgot-password")}
+                style={{ fontSize:12, fontWeight:500, textTransform:"none", letterSpacing:0, color:"#179DD0", background:"none", border:"none", cursor:"pointer" }}>
+                Forgot?
+              </button>
+            </div>
+            <div style={{ position:"relative" }}>
+              <i className="bi bi-lock" style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", fontSize:16, color: password ? "#179DD0" : "#94A3B8", pointerEvents:"none" }} />
+              <input type={showPass ? "text" : "password"} value={password}
+                onChange={e => { setPassword(e.target.value); clearErrors() }}
+                onKeyDown={e => e.key === "Enter" && handleSubmit()}
                 autoComplete="current-password"
-                placeholder="••••••••"
-                className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink-4"
+                placeholder="Your password"
+                style={{ width:"100%", height:50, borderRadius:12, padding:"0 46px", fontSize:15, fontWeight:500, color:"#0F172A", background: error ? "#FFF5F5" : "#F8FAFC", border: `1.5px solid ${error ? "#FCA5A5" : "#E2E8F0"}`, outline:"none", WebkitAppearance:"none" }}
+                onFocus={e => { e.target.style.background="#fff"; e.target.style.borderColor="#179DD0"; e.target.style.boxShadow="0 0 0 4px rgba(23,157,208,0.12)" }}
+                onBlur={e => { e.target.style.background="#F8FAFC"; e.target.style.borderColor=error?"#FCA5A5":"#E2E8F0"; e.target.style.boxShadow="none" }}
               />
+              <button type="button" onClick={() => setShowPass(s => !s)} tabIndex={-1}
+                style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", fontSize:17, color:"#94A3B8", cursor:"pointer", padding:3, lineHeight:1 }}>
+                <i className={`bi ${showPass ? "bi-eye-slash" : "bi-eye"}`} />
+              </button>
             </div>
+          </div>
 
-            {error && (
-              <div className="mb-4 flex items-start gap-2 rounded-[10px] border border-[#FECACA] bg-red-light px-3.5 py-2.5 text-[12.5px] font-medium text-red">
-                <i className="bi bi-exclamation-circle mt-px flex-shrink-0" />
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-gradient-to-r from-cyan-dark to-cyan py-3 text-sm font-bold text-white shadow-[0_8px_20px_-6px_rgba(23,157,208,.55)] transition-all duration-150 hover:shadow-[0_10px_24px_-6px_rgba(23,157,208,.65)] disabled:opacity-60"
-            >
-              {submitting ? (
-                <>
-                  <span className="h-3.5 w-3.5 animate-spin-fast rounded-full border-2 border-white/30 border-t-white" />
-                  Signing in…
+          {/* Submit */}
+          <button type="button" onClick={handleSubmit} disabled={submitting}
+            style={{ width:"100%", height:52, marginTop:16, border:"none", borderRadius:13, fontSize:15.5, fontWeight:800, color:"#fff", background:"#179DD0", display:"flex", alignItems:"center", justifyContent:"center", gap:12, boxShadow:"0 2px 6px rgba(0,0,0,0.08), 0 8px 28px rgba(23,157,208,0.38)", cursor:submitting?"not-allowed":"pointer", opacity:submitting?0.6:1, position:"relative", overflow:"hidden", transition:"background 0.18s, transform 0.2s, box-shadow 0.2s" }}>
+            <span style={{ position:"absolute", inset:0, background:"linear-gradient(150deg,rgba(255,255,255,0.14) 0%,transparent 52%)", pointerEvents:"none" }} />
+            {submitting
+              ? <span style={{ width:21, height:21, border:"2.5px solid rgba(255,255,255,0.25)", borderTopColor:"#fff", borderRadius:"50%", animation:"spin 0.65s linear infinite", display:"inline-block" }} />
+              : <>
+                  <span>Continue</span>
+                  <div style={{ width:31, height:31, borderRadius:"50%", background:"rgba(255,255,255,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:15 }}>
+                    <i className="bi bi-arrow-right" />
+                  </div>
                 </>
-              ) : (
-                <>
-                  Sign in <i className="bi bi-arrow-right" />
-                </>
-              )}
-            </button>
-          </form>
+            }
+          </button>
 
-          <p className="enter mt-6 text-center text-[11px] text-ink-4" style={{ animationDelay: "200ms" }}>
-            Trouble signing in? Contact your station supervisor.
-          </p>
+          {/* Success */}
+          {success && (
+            <div style={{ display:"flex", alignItems:"center", gap:8, padding:"11px 13px", borderRadius:11, marginTop:12, background:"#F0FDF4", border:"1px solid #BBF7D0", fontSize:13, fontWeight:600, color:"#059669" }}>
+              <i className="bi bi-check-circle-fill" style={{ fontSize:16 }} />
+              {success}
+            </div>
+          )}
+        </div>
+
+        {/* Below card */}
+        <div style={{ width:"100%", display:"flex", flexDirection:"column", alignItems:"center", gap:14, marginTop:20 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.28)" }}>
+            <i className="bi bi-shield-lock" />
+            <span>Verified via Google Apps Script · Activity logged</span>
+          </div>
+          <button type="button" onClick={() => navigate("/")}
+            style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"rgba(255,255,255,0.28)", background:"none", border:"none", cursor:"pointer" }}>
+            <i className="bi bi-arrow-left" /> Back to home
+          </button>
         </div>
       </div>
-    </main>
+
+      <style>{`
+        @keyframes riseIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:none; } }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        @keyframes drift1 { to { transform:translate(40px,30px); } }
+        @keyframes drift2 { to { transform:translate(-35px,-25px); } }
+        @keyframes drift3 { to { transform:translate(-20px,40px); } }
+      `}</style>
+    </div>
   )
 }

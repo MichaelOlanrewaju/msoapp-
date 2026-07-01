@@ -30,7 +30,14 @@ export default function KpiGrid({ status, data }) {
     totalFoot = <Badge tone="neutral">No data today yet</Badge>
   } else if (status === "ready" && data) {
     totalValue = naira(data.grandTotal)
-    if (data.totalChange !== null && data.totalChange !== undefined) {
+    if (data.live) {
+      totalFoot = (
+        <>
+          <Badge tone="neutral">● Live</Badge>
+          &nbsp;from recorded sales — cash-up pending
+        </>
+      )
+    } else if (data.totalChange !== null && data.totalChange !== undefined) {
       const up = data.totalChange >= 0
       totalFoot = (
         <>

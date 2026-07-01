@@ -27,7 +27,7 @@ function SalesInner() {
   const [date, setDate] = useState(todayISO())
 
   const {
-    status, readings, hasOpening, hasClosing,
+    status, readings, hasOpening, hasClosing, existingPhotos,
     updateReading, submit, savePhoto, saving: submitting, refresh,
   } = useSalesEntry(auth.username, auth.name, date)
   const { prices } = usePrices()
@@ -41,6 +41,7 @@ function SalesInner() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notes] = useState("")
   const [photos, setPhotos] = useState({})
+  const [uploadProgress, setUploadProgress] = useState({})
 
   useEffect(() => {
     if (status === "ready") {
@@ -52,6 +53,23 @@ function SalesInner() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
+
+  // Seed photo indicators (with viewable thumbnails) from what's already
+  // saved on the backend — previously this page had no photo-loading
+  // logic at all, so an already-captured pump photo always looked
+  // missing after navigating away and back, even though it was safely
+  // uploaded. Mirrors the same fix already applied to Dip Entry.
+  useEffect(() => {
+    if (status !== "ready") return
+    const sessionLabel = mode === "open" ? "Morning" : "Evening"
+    const seeded = {}
+    STEPS.forEach(s => {
+      const key = `${s.pump.id}__${sessionLabel}`
+      if (existingPhotos[key]) seeded[s.pump.id] = { saved: true, fileId: existingPhotos[key].fileId }
+    })
+    setPhotos(seeded)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, mode, existingPhotos])
 
   useEffect(() => {
     setTimeout(() => {
@@ -75,9 +93,17 @@ function SalesInner() {
   }
 
   const handlePhoto = (dataUrl, mimeType) => {
-    setPhotos(prev => ({ ...prev, [stepKey]: { saved: false } }))
-    savePhoto(date, mode === "open" ? "Morning" : "Evening", stepKey, dataUrl, mimeType).then(d => {
-      setPhotos(prev => ({ ...prev, [stepKey]: { saved: true } }))
+    setPhotos(prev => ({ ...prev, [stepKey]: { saved: false, localUrl: dataUrl } }))
+    setUploadProgress(prev => ({ ...prev, [stepKey]: 0 }))
+    savePhoto(date, mode === "open" ? "Morning" : "Evening", stepKey, dataUrl, mimeType, pct => {
+      setUploadProgress(prev => ({ ...prev, [stepKey]: pct }))
+    }).then(d => {
+      setPhotos(prev => ({ ...prev, [stepKey]: { saved: true, localUrl: dataUrl } }))
+      setUploadProgress(prev => {
+        const next = { ...prev }
+        delete next[stepKey]
+        return next
+      })
       toast.showToast(d.ok ? "Photo saved" : "Photo captured", d.ok ? "Uploaded to Drive" : "Will retry on next sync", d.ok ? "ok" : "warn")
     })
   }
@@ -172,6 +198,7 @@ function SalesInner() {
                   onCapture={handlePhoto}
                   label={`Add Pump ${step.pump.id} photo`}
                   sub="Optional evidence photo"
+                  progress={uploadProgress[stepKey]}
                 />
               )}
             </div>
