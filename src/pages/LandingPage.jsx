@@ -145,7 +145,7 @@ export default function LandingPage() {
         style={{ top: "env(safe-area-inset-top)", paddingTop: 24 }}>
         {/* Logo */}
         <div className="flex items-center gap-[11px]">
-          <img src="/images/msolimpid.png" alt="MSO Limpid"
+          <img src="/publuc/images/msolimpid.png" alt="MSO Limpid"
             style={{ height: 36, width: "auto", display: "block", filter: "brightness(0) invert(1)" }}
             onError={e => { e.target.style.display="none" }} />
           <div>
